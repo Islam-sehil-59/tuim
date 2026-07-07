@@ -1,5 +1,6 @@
 pub mod cache;
 pub mod config;
+pub mod engine;
 pub mod log;
 pub mod media;
 pub mod models;
