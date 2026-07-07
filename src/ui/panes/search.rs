@@ -13,9 +13,8 @@ use crate::{
     },
     ui::widgets::{
         entity_preview::preview_lines, footer::render_footer, status_bar::render_status_bar,
-        transport::render_transport, visualizer::cava_lines,
+        transport::render_transport,
     },
-    visualizer::cava::CavaFrame,
 };
 
 pub struct SearchPane;
@@ -30,36 +29,31 @@ impl SearchPane {
         frame: &mut Frame,
         state: &AppState,
         supports_images: bool,
-        visualizer_frame: Option<&CavaFrame>,
     ) -> Rect {
         let area = frame.area();
-        let visualizer_height = if area.height >= 34 { 8 } else { 5 };
         let outer = Layout::vertical([
             Constraint::Length(3),
             Constraint::Length(3),
             Constraint::Min(10),
             Constraint::Length(state.settings.playbar_style.transport_height()),
-            Constraint::Length(visualizer_height),
+            Constraint::Length(4),
             Constraint::Length(3),
         ])
         .split(area);
 
         let body = Layout::horizontal([Constraint::Percentage(42), Constraint::Percentage(58)])
             .split(outer[2]);
-        let right = Layout::vertical([Constraint::Percentage(58), Constraint::Percentage(42)])
-            .split(body[1]);
         let preview_top =
             Layout::horizontal([Constraint::Percentage(52), Constraint::Percentage(48)])
-                .split(right[0]);
+                .split(body[1]);
 
         render_status_bar(frame, outer[0], state);
         render_search_input(frame, outer[1], state);
         render_results(frame, body[0], state);
         render_cover(frame, preview_top[0], state, supports_images);
         render_preview(frame, preview_top[1], state, supports_images);
-        render_recent(frame, right[1], state);
         render_transport(frame, outer[3], state, "Playback");
-        render_visualizer(frame, outer[4], state, visualizer_frame);
+        render_recent(frame, outer[4], state);
         render_footer(frame, outer[5], state);
 
         preview_top[0]
@@ -352,32 +346,6 @@ fn render_recent(frame: &mut Frame, area: Rect, state: &AppState) {
         )
         .wrap(Wrap { trim: true });
     frame.render_widget(recent, area);
-}
-
-fn render_visualizer(
-    frame: &mut Frame,
-    area: Rect,
-    state: &AppState,
-    visualizer_frame: Option<&CavaFrame>,
-) {
-    let palette = state.theme.palette;
-    let inner_width = area.width.saturating_sub(2);
-    let inner_height = area.height.saturating_sub(3).max(1);
-    let visualizer = Paragraph::new(cava_lines(
-        state,
-        visualizer_frame,
-        inner_width,
-        inner_height,
-    ))
-    .alignment(Alignment::Left)
-    .block(
-        Block::default()
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .title("CAVA")
-            .border_style(Style::default().fg(palette.border)),
-    );
-    frame.render_widget(visualizer, area);
 }
 
 fn truncate(value: &str, width: usize) -> String {

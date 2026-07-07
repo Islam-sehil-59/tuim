@@ -38,13 +38,12 @@ pub fn screen_layout(area: Rect) -> ScreenLayout {
         width: area.width,
         height: 1,
     });
-    let visualizer_height = if area.height >= 34 { 8 } else { 5 };
     let outer = Layout::vertical([
         Constraint::Length(3),
         Constraint::Length(3),
         Constraint::Min(10),
         Constraint::Length(3),
-        Constraint::Length(visualizer_height),
+        Constraint::Length(4),
         Constraint::Length(3),
     ])
     .split(area);
@@ -62,10 +61,9 @@ pub fn screen_layout(area: Rect) -> ScreenLayout {
         Constraint::Percentage(24),
     ])
     .split(status_inner);
-    let right =
-        Layout::vertical([Constraint::Percentage(58), Constraint::Percentage(42)]).split(body[1]);
-    let top_player = Layout::horizontal([Constraint::Percentage(55), Constraint::Percentage(45)])
-        .split(right[0]);
+    let top_player =
+        Layout::horizontal([Constraint::Percentage(55), Constraint::Percentage(45)])
+            .split(body[1]);
 
     ScreenLayout {
         nav_search: nav[0],
@@ -74,7 +72,7 @@ pub fn screen_layout(area: Rect) -> ScreenLayout {
         status_volume: status_chunks[2],
         search_input: outer[1],
         results: body[0],
-        recent: right[1],
+        recent: outer[4],
         queue_list: queue_list_rect(area),
         playback: outer[3],
         progress: Rect {

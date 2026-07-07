@@ -40,7 +40,6 @@ impl Ui {
                 frame,
                 state,
                 self.kitty.is_supported(),
-                visualizer.as_ref(),
             )),
             View::Queue => {
                 self.queue_pane.render(frame, state);
