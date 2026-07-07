@@ -9,4 +9,5 @@ pub mod providers;
 pub mod services;
 pub mod state;
 pub mod theme;
+pub mod ui;
 pub mod visualizer;
