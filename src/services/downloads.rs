@@ -8,7 +8,7 @@ use reqwest::{
     header::{HeaderMap, HeaderName, HeaderValue},
 };
 use serde::Serialize;
-use tokio::fs;
+use tokio::{fs, process::Command};
 
 use crate::{
     config::paths,
@@ -100,11 +100,6 @@ impl DownloadService {
         request: DownloadRequest,
     ) -> Result<DownloadedFile, String> {
         let source = provider.resolve_playback(&request.track).await?;
-        if !matches!(source.kind, PlaybackSourceKind::DirectUrl) {
-            return Err(String::from(
-                "download requires a direct stream; provider returned a manifest",
-            ));
-        }
 
         let extension = extension_for_source(&source);
         let audio_path = target_path(&request, extension);
@@ -114,10 +109,7 @@ impl DownloadService {
                 .map_err(|error| error.to_string())?;
         }
 
-        let bytes = self.fetch_bytes(&source).await?;
-        fs::write(&audio_path, bytes)
-            .await
-            .map_err(|error| error.to_string())?;
+        self.write_source_to_file(&source, &audio_path).await?;
 
         let fetched_lyrics = if request.include_lyrics {
             let lookup = crate::media::lyrics::LyricsLookup::from_track(&request.track, None);
@@ -168,6 +160,24 @@ impl DownloadService {
             .map(|bytes| bytes.to_vec())
             .map_err(|error| error.to_string())
     }
+
+    async fn write_source_to_file(
+        &self,
+        source: &PlaybackSource,
+        path: &Path,
+    ) -> Result<(), String> {
+        match source.kind {
+            PlaybackSourceKind::DirectUrl => {
+                let bytes = self.fetch_bytes(source).await?;
+                fs::write(path, bytes)
+                    .await
+                    .map_err(|error| error.to_string())
+            }
+            PlaybackSourceKind::DashManifest
+            | PlaybackSourceKind::HlsManifest
+            | PlaybackSourceKind::ProviderSpecific(_) => record_with_mpv(source, path).await,
+        }
+    }
 }
 
 impl Default for DownloadService {
@@ -211,9 +221,43 @@ fn headers(values: &[(String, String)]) -> Result<HeaderMap, String> {
 }
 
 fn extension_for_source(source: &PlaybackSource) -> &'static str {
-    match source.quality.as_deref() {
-        Some("FLAC") | Some("LOSSLESS") | Some("HI_RES_LOSSLESS") => "flac",
-        _ => "m4a",
+    match source.kind {
+        PlaybackSourceKind::DirectUrl => match source.quality.as_deref() {
+            Some("FLAC") | Some("LOSSLESS") | Some("HI_RES_LOSSLESS") => "flac",
+            _ => "m4a",
+        },
+        PlaybackSourceKind::DashManifest
+        | PlaybackSourceKind::HlsManifest
+        | PlaybackSourceKind::ProviderSpecific(_) => "mka",
+    }
+}
+
+async fn record_with_mpv(source: &PlaybackSource, path: &Path) -> Result<(), String> {
+    let mut command = Command::new("mpv");
+    command
+        .arg("--no-video")
+        .arg("--force-window=no")
+        .arg("--really-quiet")
+        .arg("--ao=null")
+        .arg("--vo=null")
+        .arg("--demuxer-lavf-o=protocol_whitelist=[file,http,https,tcp,tls,crypto]")
+        .arg(format!("--stream-record={}", path.display()));
+
+    for (name, value) in &source.headers {
+        command.arg(format!("--http-header-fields={name}: {value}"));
+    }
+
+    let status = command
+        .arg(&source.url)
+        .status()
+        .await
+        .map_err(|error| format!("failed to spawn mpv recorder: {error}"))?;
+
+    if status.success() {
+        Ok(())
+    } else {
+        let _ = fs::remove_file(path).await;
+        Err(format!("mpv recorder failed: {status}"))
     }
 }
 
