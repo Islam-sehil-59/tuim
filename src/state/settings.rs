@@ -36,19 +36,21 @@ impl AudioQuality {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CoverDisplayMode {
+    #[default]
     Cover,
     CoverRounded,
     #[serde(alias = "vinyl_spin")]
     VinylStill,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PlaybarStyle {
     Classic,
+    #[default]
     Modern,
 }
 
@@ -58,12 +60,6 @@ impl PlaybarStyle {
             PlaybarStyle::Classic => 5,
             PlaybarStyle::Modern => 2,
         }
-    }
-}
-
-impl Default for PlaybarStyle {
-    fn default() -> Self {
-        Self::Modern
     }
 }
 
@@ -114,20 +110,14 @@ impl SettingsState {
 
     pub fn cycle_cover_display_mode(&mut self) {
         self.cover_display_mode = match self.cover_display_mode {
-            CoverDisplayMode::Cover => CoverDisplayMode::VinylStill,
-            CoverDisplayMode::CoverRounded => CoverDisplayMode::Cover,
+            CoverDisplayMode::Cover => CoverDisplayMode::CoverRounded,
+            CoverDisplayMode::CoverRounded => CoverDisplayMode::VinylStill,
             CoverDisplayMode::VinylStill => CoverDisplayMode::Cover,
         };
     }
 
     pub fn save(&self) -> Result<(), String> {
         settings::save(self)
-    }
-}
-
-impl Default for CoverDisplayMode {
-    fn default() -> Self {
-        Self::Cover
     }
 }
 

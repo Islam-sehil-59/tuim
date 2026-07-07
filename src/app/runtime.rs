@@ -156,6 +156,33 @@ pub fn apply_runtime_event<P: Player>(
                 }
             }
         }
+        RuntimeEvent::DownloadCompleted(summary) => {
+            if let Some(error) = summary.fatal_error {
+                state.status.message = format!("Download failed for {}: {error}", summary.label);
+                outcome.push(RuntimeEffect::Log(format!(
+                    "download failed label={} error={error}",
+                    summary.label
+                )));
+                return outcome;
+            }
+            let completed = summary.files.len();
+            let failed = summary.failed.len();
+            for file in summary.files {
+                state.library.mark_downloaded(file.track, file.path);
+            }
+            state.status.message = if failed == 0 {
+                format!("Downloaded {}: {completed} tracks.", summary.label)
+            } else {
+                format!(
+                    "Downloaded {}: {completed} tracks, {failed} failed.",
+                    summary.label
+                )
+            };
+            outcome.push(RuntimeEffect::Log(format!(
+                "download completed label={} completed={} failed={}",
+                summary.label, completed, failed
+            )));
+        }
     }
 
     outcome

@@ -180,3 +180,9 @@ Status: {}
         frame.render_widget(footer, chunks[3]);
     }
 }
+
+impl Default for HelpPane {
+    fn default() -> Self {
+        Self::new()
+    }
+}

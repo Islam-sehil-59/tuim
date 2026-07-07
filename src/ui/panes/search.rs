@@ -11,9 +11,12 @@ use crate::{
         AppState,
         search::{SearchContext, SearchFilter},
     },
-    ui::widgets::{
-        entity_preview::preview_lines, footer::render_footer, status_bar::render_status_bar,
-        transport::render_transport,
+    ui::{
+        layout::{self, HomeLayoutMode, MIN_COVER_HEIGHT},
+        widgets::{
+            entity_preview::preview_lines, footer::render_footer, status_bar::render_status_bar,
+            transport::render_transport,
+        },
     },
 };
 
@@ -24,39 +27,65 @@ impl SearchPane {
         Self
     }
 
-    pub fn render(
-        &self,
-        frame: &mut Frame,
-        state: &AppState,
-        supports_images: bool,
-    ) -> Rect {
+    pub fn render(&self, frame: &mut Frame, state: &AppState, supports_images: bool) -> Rect {
         let area = frame.area();
+        let mode = layout::home_layout_mode(area);
         let outer = Layout::vertical([
             Constraint::Length(3),
             Constraint::Length(3),
             Constraint::Min(10),
             Constraint::Length(state.settings.playbar_style.transport_height()),
-            Constraint::Length(4),
             Constraint::Length(3),
         ])
         .split(area);
 
-        let body = Layout::horizontal([Constraint::Percentage(42), Constraint::Percentage(58)])
-            .split(outer[2]);
-        let preview_top =
-            Layout::horizontal([Constraint::Percentage(52), Constraint::Percentage(48)])
-                .split(body[1]);
-
         render_status_bar(frame, outer[0], state);
         render_search_input(frame, outer[1], state);
-        render_results(frame, body[0], state);
-        render_cover(frame, preview_top[0], state, supports_images);
-        render_preview(frame, preview_top[1], state, supports_images);
-        render_transport(frame, outer[3], state, "Playback");
-        render_recent(frame, outer[4], state);
-        render_footer(frame, outer[5], state);
 
-        preview_top[0]
+        let cover_rect = match mode {
+            HomeLayoutMode::Wide => {
+                let body =
+                    Layout::horizontal([Constraint::Percentage(40), Constraint::Percentage(60)])
+                        .split(outer[2]);
+                let right =
+                    Layout::horizontal([Constraint::Percentage(60), Constraint::Percentage(40)])
+                        .split(body[1]);
+
+                render_results(frame, body[0], state);
+                render_cover(frame, right[0], state, supports_images);
+                render_preview(frame, right[1], state, supports_images);
+                right[0]
+            }
+            HomeLayoutMode::Medium => {
+                let body =
+                    Layout::horizontal([Constraint::Percentage(45), Constraint::Percentage(55)])
+                        .split(outer[2]);
+
+                render_results(frame, body[0], state);
+                render_cover(frame, body[1], state, supports_images);
+                body[1]
+            }
+            HomeLayoutMode::Narrow => {
+                let cover_height = MIN_COVER_HEIGHT.min(outer[2].height.saturating_sub(6).max(6));
+                let body = Layout::vertical([Constraint::Length(cover_height), Constraint::Min(6)])
+                    .split(outer[2]);
+
+                render_cover(frame, body[0], state, supports_images);
+                render_results(frame, body[1], state);
+                body[0]
+            }
+        };
+
+        render_transport(frame, outer[3], state, "Playback");
+        render_footer(frame, outer[4], state);
+
+        cover_rect
+    }
+}
+
+impl Default for SearchPane {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -298,55 +327,6 @@ fn render_preview(frame: &mut Frame, area: Rect, state: &AppState, supports_imag
         )
         .wrap(Wrap { trim: true });
     frame.render_widget(preview, area);
-}
-
-fn render_recent(frame: &mut Frame, area: Rect, state: &AppState) {
-    let palette = state.theme.palette;
-    let downloaded = state.library.downloaded_tracks.len();
-    let downloaded_sample = state
-        .library
-        .downloaded_tracks
-        .first()
-        .map(|item| {
-            format!(
-                "     Latest download: {} - {}",
-                item.track.artist, item.track.title
-            )
-        })
-        .unwrap_or_default();
-    let text = if let Some(track) = &state.player.now_playing {
-        format!(
-            "Resume  {} - {}     Queue: {} tracks     Downloaded: {} tracks{}",
-            track.artist,
-            track.title,
-            state.queue.items.len(),
-            downloaded,
-            downloaded_sample
-        )
-    } else if state.queue.items.is_empty() {
-        format!(
-            "Downloaded: {downloaded} tracks{}     Click here or press Enter with empty search to open downloads.",
-            downloaded_sample
-        )
-    } else {
-        format!(
-            "Queue ready: {} tracks     Downloaded: {} tracks{}",
-            state.queue.items.len(),
-            downloaded,
-            downloaded_sample
-        )
-    };
-    let recent = Paragraph::new(text)
-        .style(Style::default().fg(palette.muted_text))
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_type(BorderType::Rounded)
-                .title("Recently played / downloaded")
-                .border_style(Style::default().fg(palette.border)),
-        )
-        .wrap(Wrap { trim: true });
-    frame.render_widget(recent, area);
 }
 
 fn truncate(value: &str, width: usize) -> String {

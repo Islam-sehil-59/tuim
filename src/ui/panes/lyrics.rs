@@ -10,7 +10,13 @@ use crate::{
     media::lyrics::Lyrics,
     state::AppState,
     state::settings::PlaybarStyle,
-    ui::widgets::{footer::render_footer, status_bar::render_status_bar, visualizer::cava_lines},
+    ui::{
+        layout::{self, LyricsLayoutMode, MIN_COVER_HEIGHT},
+        widgets::{
+            footer::render_footer, status_bar::render_status_bar, transport::render_transport,
+            visualizer::cava_lines,
+        },
+    },
     visualizer::cava::CavaFrame,
 };
 
@@ -27,86 +33,82 @@ impl LyricsPane {
         state: &AppState,
         visualizer_frame: Option<&CavaFrame>,
     ) -> Rect {
+        let area = frame.area();
+        match layout::lyrics_layout_mode(area) {
+            LyricsLayoutMode::Wide => self.render_wide(frame, state, visualizer_frame),
+            LyricsLayoutMode::Medium => self.render_medium(frame, state),
+            LyricsLayoutMode::Narrow => self.render_narrow(frame, state),
+        }
+    }
+
+    fn render_wide(
+        &self,
+        frame: &mut Frame,
+        state: &AppState,
+        visualizer_frame: Option<&CavaFrame>,
+    ) -> Rect {
         let chunks = Layout::vertical([
             Constraint::Length(3),
             Constraint::Min(10),
             Constraint::Length(3),
         ])
         .split(frame.area());
-        let body = Layout::horizontal([Constraint::Percentage(32), Constraint::Percentage(68)])
+        let body = Layout::horizontal([Constraint::Percentage(34), Constraint::Percentage(66)])
             .split(chunks[1]);
 
-        let palette = state.theme.palette;
-
-        // ── Left window: cover + playback ──
-        let now_playing = state
-            .player
-            .now_playing
-            .as_ref()
-            .map(|track| format!("{} - {}", track.artist, track.title))
-            .unwrap_or_else(|| String::from("Nothing playing"));
-        let cover_message = if state.playback_cover.loading {
-            "Loading cover art..."
-        } else if state.playback_cover.path.is_none() {
-            "No cover available"
-        } else {
-            ""
-        };
-
-        let left_block = Block::default()
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .title(now_playing)
-            .border_style(Style::default().fg(palette.border));
-        let left_inner = left_block.inner(body[0]);
-        frame.render_widget(left_block, body[0]);
-
-        let playback_height = state.settings.playbar_style.transport_height();
-        let left_chunks =
-            Layout::vertical([Constraint::Min(5), Constraint::Length(playback_height)])
-                .split(left_inner);
-
-        let cover = Paragraph::new(cover_message)
-            .alignment(Alignment::Center)
-            .style(Style::default().fg(palette.muted_text));
-        frame.render_widget(cover, left_chunks[0]);
-
-        render_playback_inline(frame, left_chunks[1], state);
-
-        // ── Right window: lyrics + CAVA ──
-        let right_block = Block::default()
-            .borders(Borders::ALL)
-            .border_type(BorderType::Rounded)
-            .title("Lyrics")
-            .border_style(Style::default().fg(palette.border));
-        let right_inner = right_block.inner(body[1]);
-        frame.render_widget(right_block, body[1]);
-
-        let right_chunks =
-            Layout::vertical([Constraint::Min(5), Constraint::Length(8)]).split(right_inner);
-
-        let lyrics = Paragraph::new(full_lyrics_lines(
-            state,
-            right_chunks[0].height.saturating_sub(1),
-        ))
-        .alignment(Alignment::Center)
-        .wrap(Wrap { trim: true });
-        frame.render_widget(lyrics, right_chunks[0]);
-
-        let visualizer = Paragraph::new(cava_lines(
-            state,
-            visualizer_frame,
-            right_chunks[1].width.saturating_sub(1),
-            right_chunks[1].height.saturating_sub(1),
-        ))
-        .alignment(Alignment::Left);
-        frame.render_widget(visualizer, right_chunks[1]);
-
-        // ── Top & bottom rows ──
+        let cover_rect = render_cover_panel(frame, body[0], state, true);
+        render_lyrics_panel(frame, body[1], state, true, visualizer_frame);
         render_status_bar(frame, chunks[0], state);
         render_footer(frame, chunks[2], state);
 
-        body[0]
+        cover_rect
+    }
+
+    fn render_medium(&self, frame: &mut Frame, state: &AppState) -> Rect {
+        let chunks = Layout::vertical([
+            Constraint::Length(3),
+            Constraint::Min(10),
+            Constraint::Length(state.settings.playbar_style.transport_height()),
+            Constraint::Length(3),
+        ])
+        .split(frame.area());
+        let body = Layout::horizontal([Constraint::Percentage(40), Constraint::Percentage(60)])
+            .split(chunks[1]);
+
+        let cover_rect = render_cover_panel(frame, body[0], state, false);
+        render_lyrics_panel(frame, body[1], state, false, None);
+        render_status_bar(frame, chunks[0], state);
+        render_transport(frame, chunks[2], state, "Playback");
+        render_footer(frame, chunks[3], state);
+
+        cover_rect
+    }
+
+    fn render_narrow(&self, frame: &mut Frame, state: &AppState) -> Rect {
+        let chunks = Layout::vertical([
+            Constraint::Length(3),
+            Constraint::Min(10),
+            Constraint::Length(state.settings.playbar_style.transport_height()),
+            Constraint::Length(3),
+        ])
+        .split(frame.area());
+        let cover_height = MIN_COVER_HEIGHT.min(chunks[1].height.saturating_sub(7).max(6));
+        let body = Layout::vertical([Constraint::Length(cover_height), Constraint::Min(7)])
+            .split(chunks[1]);
+
+        let cover_rect = render_cover_panel(frame, body[0], state, false);
+        render_lyrics_panel(frame, body[1], state, false, None);
+        render_status_bar(frame, chunks[0], state);
+        render_transport(frame, chunks[2], state, "Playback");
+        render_footer(frame, chunks[3], state);
+
+        cover_rect
+    }
+}
+
+impl Default for LyricsPane {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -114,6 +116,92 @@ fn render_playback_inline(frame: &mut Frame, area: Rect, state: &AppState) {
     match state.settings.playbar_style {
         PlaybarStyle::Classic => render_playback_classic(frame, area, state),
         PlaybarStyle::Modern => render_playback_modern(frame, area, state),
+    }
+}
+
+fn render_cover_panel(
+    frame: &mut Frame,
+    area: Rect,
+    state: &AppState,
+    include_inline_playback: bool,
+) -> Rect {
+    let palette = state.theme.palette;
+    let now_playing = state
+        .player
+        .now_playing
+        .as_ref()
+        .map(|track| format!("{} - {}", track.artist, track.title))
+        .unwrap_or_else(|| String::from("Nothing playing"));
+    let cover_message = if state.playback_cover.loading {
+        "Loading cover art..."
+    } else if state.playback_cover.path.is_none() {
+        "No cover available"
+    } else {
+        ""
+    };
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .title(now_playing)
+        .border_style(Style::default().fg(palette.border));
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let cover_area = if include_inline_playback {
+        let chunks = Layout::vertical([
+            Constraint::Min(5),
+            Constraint::Length(state.settings.playbar_style.transport_height()),
+        ])
+        .split(inner);
+        render_playback_inline(frame, chunks[1], state);
+        chunks[0]
+    } else {
+        inner
+    };
+
+    let cover = Paragraph::new(cover_message)
+        .alignment(Alignment::Center)
+        .style(Style::default().fg(palette.muted_text));
+    frame.render_widget(cover, cover_area);
+
+    area
+}
+
+fn render_lyrics_panel(
+    frame: &mut Frame,
+    area: Rect,
+    state: &AppState,
+    show_visualizer: bool,
+    visualizer_frame: Option<&CavaFrame>,
+) {
+    let palette = state.theme.palette;
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .title("Lyrics")
+        .border_style(Style::default().fg(palette.border));
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let visualizer_height = if show_visualizer { 8 } else { 0 };
+    let chunks =
+        Layout::vertical([Constraint::Min(5), Constraint::Length(visualizer_height)]).split(inner);
+
+    let lyrics = Paragraph::new(full_lyrics_lines(state, chunks[0].height.saturating_sub(1)))
+        .alignment(Alignment::Center)
+        .wrap(Wrap { trim: true });
+    frame.render_widget(lyrics, chunks[0]);
+
+    if show_visualizer {
+        let visualizer = Paragraph::new(cava_lines(
+            state,
+            visualizer_frame,
+            chunks[1].width.saturating_sub(1),
+            chunks[1].height.saturating_sub(1),
+        ))
+        .alignment(Alignment::Left);
+        frame.render_widget(visualizer, chunks[1]);
     }
 }
 

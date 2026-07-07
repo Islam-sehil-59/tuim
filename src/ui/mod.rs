@@ -48,11 +48,7 @@ impl Ui {
                 self.queue_pane.render(frame, state);
                 None
             }
-            View::Lyrics => Some(self.lyrics_pane.render(
-                frame,
-                state,
-                visualizer.as_ref(),
-            )),
+            View::Lyrics => Some(self.lyrics_pane.render(frame, state, visualizer.as_ref())),
             View::Help => {
                 self.help_pane.render(frame, state);
                 None
@@ -77,4 +73,8 @@ impl Ui {
     }
 }
 
-
+impl Default for Ui {
+    fn default() -> Self {
+        Self::new()
+    }
+}

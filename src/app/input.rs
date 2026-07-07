@@ -31,7 +31,11 @@ impl InputAction {
 }
 
 pub fn action_from_key(state: &AppState, keybinds: &Keybinds, key_event: KeyEvent) -> Action {
-    let ctx = KeyContext { state, keybinds, key_event };
+    let ctx = KeyContext {
+        state,
+        keybinds,
+        key_event,
+    };
 
     global_nav_key(&ctx)
         .or_else(|| global_playback_key(&ctx))
@@ -87,10 +91,10 @@ fn global_playback_key(ctx: &KeyContext) -> Option<Action> {
     if ctx.keybinds.volume_down.matches(ctx.key_event) {
         return Some(Action::VolumeDown);
     }
-    if can_use_global_text_shortcut(ctx.state, ctx.key_event) {
-        if ctx.keybinds.mute.matches(ctx.key_event) {
-            return Some(Action::ToggleMute);
-        }
+    if can_use_global_text_shortcut(ctx.state, ctx.key_event)
+        && ctx.keybinds.mute.matches(ctx.key_event)
+    {
+        return Some(Action::ToggleMute);
     }
 
     None
@@ -122,8 +126,7 @@ fn view_specific_key(ctx: &KeyContext) -> Option<Action> {
 
 fn help_view_key(ctx: &KeyContext) -> Option<Action> {
     if ctx.keybinds.quit.matches(ctx.key_event)
-        || KeyCode::Char('q') == ctx.key_event.code
-            && ctx.key_event.modifiers == KeyModifiers::NONE
+        || KeyCode::Char('q') == ctx.key_event.code && ctx.key_event.modifiers == KeyModifiers::NONE
     {
         return Some(Action::SwitchToSearch);
     }
@@ -319,7 +322,8 @@ pub fn action_from_mouse(
         return InputAction::new(Action::None);
     }
 
-    let layout = layout::screen_layout(screen_area);
+    let transport_height = state.settings.playbar_style.transport_height();
+    let layout = layout::screen_layout(screen_area, transport_height);
     if layout::contains(layout.status_volume, mouse_event.column, mouse_event.row)
         && playback_controls_available(state)
     {
@@ -395,11 +399,9 @@ pub fn action_from_mouse(
             }
         }
         View::Lyrics => {
-            if layout::contains(layout.progress, mouse_event.column, mouse_event.row) {
-                return InputAction::new(progress_click_action(
-                    layout.progress,
-                    mouse_event.column,
-                ));
+            let progress = layout::lyrics_progress_rect(screen_area, transport_height);
+            if layout::contains(progress, mouse_event.column, mouse_event.row) {
+                return InputAction::new(progress_click_action(progress, mouse_event.column));
             }
         }
         View::Help => {}

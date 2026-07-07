@@ -101,6 +101,8 @@ fn settings_cycle_cover_display_modes_from_plain_cover_default() {
 
     assert_eq!(settings.cover_display_mode, CoverDisplayMode::Cover);
     settings.cycle_cover_display_mode();
+    assert_eq!(settings.cover_display_mode, CoverDisplayMode::CoverRounded);
+    settings.cycle_cover_display_mode();
     assert_eq!(settings.cover_display_mode, CoverDisplayMode::VinylStill);
     settings.cycle_cover_display_mode();
     assert_eq!(settings.cover_display_mode, CoverDisplayMode::Cover);

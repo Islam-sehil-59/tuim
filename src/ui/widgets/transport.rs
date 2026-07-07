@@ -45,44 +45,20 @@ fn render_classic(frame: &mut Frame, area: Rect, state: &AppState, title: &str) 
         .label(label);
     let pause_icon = if state.player.paused { "" } else { "" };
     let controls = Paragraph::new(Line::from(vec![
-        Span::styled(
-            " prev",
-            Style::default().fg(palette.foreground),
-        ),
-        Span::styled(
-            "    -10",
-            Style::default().fg(palette.foreground),
-        ),
+        Span::styled(" prev", Style::default().fg(palette.foreground)),
+        Span::styled("    -10", Style::default().fg(palette.foreground)),
         Span::styled(
             format!("   {pause_icon} play/pause"),
             Style::default()
                 .fg(palette.accent_secondary)
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(
-            "    stop",
-            Style::default().fg(palette.foreground),
-        ),
-        Span::styled(
-            "   +10 ",
-            Style::default().fg(palette.foreground),
-        ),
-        Span::styled(
-            "   next ",
-            Style::default().fg(palette.foreground),
-        ),
-        Span::styled(
-            "   ",
-            Style::default().fg(palette.muted_text),
-        ),
-        Span::styled(
-            "   ",
-            Style::default().fg(palette.muted_text),
-        ),
-        Span::styled(
-            "    now playing",
-            Style::default().fg(palette.foreground),
-        ),
+        Span::styled("    stop", Style::default().fg(palette.foreground)),
+        Span::styled("   +10 ", Style::default().fg(palette.foreground)),
+        Span::styled("   next ", Style::default().fg(palette.foreground)),
+        Span::styled("   ", Style::default().fg(palette.muted_text)),
+        Span::styled("   ", Style::default().fg(palette.muted_text)),
+        Span::styled("    now playing", Style::default().fg(palette.foreground)),
     ]))
     .alignment(Alignment::Center);
 

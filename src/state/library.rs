@@ -32,13 +32,19 @@ impl LibraryState {
 
         self.downloaded_tracks
             .insert(0, DownloadedTrack { track, path });
-        self.downloaded_tracks.truncate(20);
     }
 
     pub fn is_downloaded(&self, track_id: u64) -> bool {
         self.downloaded_tracks
             .iter()
             .any(|item| item.track.id == track_id)
+    }
+
+    pub fn download_path(&self, track_id: u64) -> Option<&PathBuf> {
+        self.downloaded_tracks
+            .iter()
+            .find(|item| item.track.id == track_id)
+            .map(|item| &item.path)
     }
 }
 

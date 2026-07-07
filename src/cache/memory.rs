@@ -58,6 +58,10 @@ impl<T: Clone> MemoryCache<T> {
         self.items.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.items.is_empty()
+    }
+
     fn evict_overflow(&mut self) {
         while self.items.len() > self.max_items {
             let Some(oldest) = self.order.pop_front() else {

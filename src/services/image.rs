@@ -132,3 +132,9 @@ impl ImageService {
         format!("https://resources.tidal.com/images/{formatted}/{size}x{size}.jpg")
     }
 }
+
+impl Default for ImageService {
+    fn default() -> Self {
+        Self::new()
+    }
+}

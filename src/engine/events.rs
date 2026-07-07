@@ -1,4 +1,5 @@
 use crate::{
+    media::downloads::DownloadSummary,
     media::lyrics::Lyrics,
     media::playback::PlaybackSource,
     models::track::Track,
@@ -23,6 +24,10 @@ pub enum RuntimeEvent {
         duration_seconds: Option<u32>,
         result: Result<Option<Lyrics>, String>,
     },
+    DownloadCompleted(DownloadSummary),
 }
 
-pub type CoverEvent = Result<CoverArt, String>;
+pub struct CoverEvent {
+    pub request_key: String,
+    pub result: Result<CoverArt, String>,
+}
