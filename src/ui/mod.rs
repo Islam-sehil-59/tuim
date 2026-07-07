@@ -5,7 +5,7 @@ pub mod widgets;
 
 use std::io;
 
-use ratatui::{Frame, layout::Rect};
+use ratatui::{Frame, layout::Rect, style::Style, widgets::Paragraph};
 
 use crate::state::{AppState, view::View};
 use crate::ui::image::KittyImageRenderer;
@@ -34,6 +34,9 @@ impl Ui {
     }
 
     pub fn render(&mut self, frame: &mut Frame, state: &AppState) -> Option<Rect> {
+        let bg = Style::default().bg(state.theme.palette.background);
+        frame.render_widget(Paragraph::new("").style(bg), frame.area());
+
         let visualizer = self.cava.frame(state.player.now_playing.is_some());
         match state.current_view {
             View::Search | View::Album | View::Artist => Some(self.search_pane.render(

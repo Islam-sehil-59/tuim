@@ -73,7 +73,10 @@ pub fn render_status_bar(frame: &mut Frame, area: Rect, state: &AppState) {
                 Style::default().fg(palette.muted_text),
             ),
         ]);
-        frame.render_widget(Paragraph::new(compact), inner);
+        frame.render_widget(
+            Paragraph::new(compact).style(Style::default().fg(palette.foreground)),
+            inner,
+        );
         return;
     }
 
@@ -108,9 +111,14 @@ pub fn render_status_bar(frame: &mut Frame, area: Rect, state: &AppState) {
         ),
     ]);
 
-    frame.render_widget(Paragraph::new(left), chunks[0]);
     frame.render_widget(
-        Paragraph::new(center).alignment(Alignment::Center),
+        Paragraph::new(left).style(Style::default().fg(palette.foreground)),
+        chunks[0],
+    );
+    frame.render_widget(
+        Paragraph::new(center)
+            .style(Style::default().fg(palette.foreground))
+            .alignment(Alignment::Center),
         chunks[1],
     );
     render_volume(frame, chunks[2], state, &volume);

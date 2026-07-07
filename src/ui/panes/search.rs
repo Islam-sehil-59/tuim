@@ -288,6 +288,7 @@ fn render_cover(frame: &mut Frame, area: Rect, state: &AppState, supports_images
 fn render_preview(frame: &mut Frame, area: Rect, state: &AppState, supports_images: bool) {
     let palette = state.theme.palette;
     let preview = Paragraph::new(preview_lines(state, supports_images))
+        .style(Style::default().fg(palette.foreground))
         .block(
             Block::default()
                 .borders(Borders::ALL)
