@@ -1,0 +1,27 @@
+/target
+
+# Reference-only external repos (not part of this project's source)
+/monochrome/
+/rmpc-master/
+
+# Docs site (user-managed separately)
+/docs/
+
+# AI agent/editor config
+.agents/
+.codex/
+
+# Rust build artifacts
+*.o
+*.so
+*.dylib
+*.dll
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor temp files
+*.swp
+*.swo
+*~
