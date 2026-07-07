@@ -93,9 +93,7 @@ impl MpvPlayer {
     }
 
     pub fn poll_exit(&mut self) -> Option<PlaybackExit> {
-        let Some(active) = self.active.as_mut() else {
-            return None;
-        };
+        let active = self.active.as_mut()?;
 
         let Some(child) = active.child.as_mut() else {
             if connect_ipc(&active.ipc_path).is_ok() {
@@ -271,6 +269,12 @@ impl MpvPlayer {
     }
 }
 
+impl Default for MpvPlayer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Player for MpvPlayer {
     fn play(&mut self, source: &PlaybackSource) -> Result<(), PlayerError> {
         if self.active.is_some() {
@@ -353,12 +357,8 @@ fn cleanup_ipc_socket(path: &Path) {
 
 fn query_numeric_property(ipc_path: &Path, property: &str) -> Option<f64> {
     let stream = UnixStream::connect(ipc_path).ok()?;
-    stream
-        .set_read_timeout(Some(IPC_TIMEOUT))
-        .ok()?;
-    stream
-        .set_write_timeout(Some(IPC_TIMEOUT))
-        .ok()?;
+    stream.set_read_timeout(Some(IPC_TIMEOUT)).ok()?;
+    stream.set_write_timeout(Some(IPC_TIMEOUT)).ok()?;
 
     let mut stream = stream;
     let command = format!(r#"{{"command":["get_property","{property}"]}}"#);
@@ -389,12 +389,8 @@ fn query_bool_property(ipc_path: &Path, property: &str) -> Option<bool> {
 
 fn query_property(ipc_path: &Path, property: &str) -> Option<serde_json::Value> {
     let stream = UnixStream::connect(ipc_path).ok()?;
-    stream
-        .set_read_timeout(Some(IPC_TIMEOUT))
-        .ok()?;
-    stream
-        .set_write_timeout(Some(IPC_TIMEOUT))
-        .ok()?;
+    stream.set_read_timeout(Some(IPC_TIMEOUT)).ok()?;
+    stream.set_write_timeout(Some(IPC_TIMEOUT)).ok()?;
     let mut stream = stream;
     let command = format!(r#"{{"command":["get_property","{property}"]}}"#);
     stream.write_all(command.as_bytes()).ok()?;
@@ -436,5 +432,3 @@ fn format_timestamp(seconds: f64) -> String {
 
     format!("{minutes}:{seconds:02}")
 }
-
-

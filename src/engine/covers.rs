@@ -3,7 +3,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::{
     engine::events::CoverEvent,
     models::{album::Album, artist::Artist, track::Track},
-    services::image::{CoverArt, ImageService},
+    services::image::ImageService,
     state::AppState,
 };
 
@@ -40,7 +40,7 @@ pub fn clear_cover_request(state: &mut AppState) {
 }
 
 pub fn apply_cover_result(state: &mut AppState, result: CoverEvent) -> Result<(), String> {
-    match result {
+    match result.result {
         Ok(cover) => {
             if state.cover.request_key.as_deref() == Some(cover.request_key.as_str()) {
                 state.cover.loading = false;
@@ -53,39 +53,58 @@ pub fn apply_cover_result(state: &mut AppState, result: CoverEvent) -> Result<()
             Ok(())
         }
         Err(error) => {
-            state.cover.loading = false;
-            state.cover.path = None;
+            let mut matched = false;
+            if state.cover.request_key.as_deref() == Some(result.request_key.as_str()) {
+                state.cover.loading = false;
+                state.cover.path = None;
+                matched = true;
+            }
+            if state.playback_cover.request_key.as_deref() == Some(result.request_key.as_str()) {
+                state.playback_cover.loading = false;
+                state.playback_cover.path = None;
+                matched = true;
+            }
+            if !matched {
+                return Ok(());
+            }
             Err(error)
         }
     }
 }
 
-pub fn spawn_cover_fetch(
-    image: ImageService,
-    track: Track,
-    tx: UnboundedSender<Result<CoverArt, String>>,
-) {
+pub fn spawn_cover_fetch(image: ImageService, track: Track, tx: UnboundedSender<CoverEvent>) {
+    let request_key = format!("track:{}", track.id);
     tokio::spawn(async move {
-        let _ = tx.send(image.fetch_cover_for_track(&track).await);
+        let result = image.fetch_cover_for_track(&track).await;
+        let _ = tx.send(CoverEvent {
+            request_key,
+            result,
+        });
     });
 }
 
-pub fn spawn_album_cover_fetch(
-    image: ImageService,
-    album: Album,
-    tx: UnboundedSender<Result<CoverArt, String>>,
-) {
+pub fn spawn_album_cover_fetch(image: ImageService, album: Album, tx: UnboundedSender<CoverEvent>) {
+    let request_key = format!("album:{}", album.id);
     tokio::spawn(async move {
-        let _ = tx.send(image.fetch_cover_for_album(&album).await);
+        let result = image.fetch_cover_for_album(&album).await;
+        let _ = tx.send(CoverEvent {
+            request_key,
+            result,
+        });
     });
 }
 
 pub fn spawn_artist_cover_fetch(
     image: ImageService,
     artist: Artist,
-    tx: UnboundedSender<Result<CoverArt, String>>,
+    tx: UnboundedSender<CoverEvent>,
 ) {
+    let request_key = format!("artist:{}", artist.id);
     tokio::spawn(async move {
-        let _ = tx.send(image.fetch_cover_for_artist(&artist).await);
+        let result = image.fetch_cover_for_artist(&artist).await;
+        let _ = tx.send(CoverEvent {
+            request_key,
+            result,
+        });
     });
 }

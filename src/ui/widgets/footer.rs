@@ -46,12 +46,14 @@ pub fn render_footer(frame: &mut Frame, area: Rect, state: &AppState) {
     ]);
 
     frame.render_widget(
-        Paragraph::new(line).block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_type(BorderType::Rounded)
-                .border_style(Style::default().fg(palette.border)),
-        ),
+        Paragraph::new(line)
+            .style(Style::default().fg(palette.foreground))
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Rounded)
+                    .border_style(Style::default().fg(palette.border)),
+            ),
         area,
     );
 }

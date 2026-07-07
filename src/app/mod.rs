@@ -13,8 +13,7 @@ use ratatui::{Terminal, layout::Rect, prelude::CrosstermBackend};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
 
 use crate::{
-    config::keybinds::Keybinds,
-    config::paths,
+    config::{keybinds::Keybinds, paths},
     engine::{
         covers,
         events::{CoverEvent, RuntimeEvent},
@@ -24,11 +23,19 @@ use crate::{
         search,
     },
     log::app_log,
-    media::downloads::DownloadRequest,
-    player::mpv::MpvPlayer,
+    media::{
+        downloads::DownloadSummary,
+        playback::{PlaybackSource, PlaybackSourceKind},
+    },
+    player::{mpv::MpvPlayer, traits::Player},
     providers::monochrome::MonochromeProvider,
-    providers::provider::SearchResults,
-    services::{image::ImageService, lyrics::LyricsService},
+    providers::provider::{MusicProvider, SearchResults},
+    services::{
+        downloads::{DownloadJob, DownloadService},
+        image::ImageService,
+        library,
+        lyrics::LyricsService,
+    },
     state::{
         AppState,
         search::{SearchFilter, SelectedSearchItem},
@@ -50,6 +57,7 @@ pub struct App {
     provider: MonochromeProvider,
     image: ImageService,
     lyrics: LyricsService,
+    downloads: DownloadService,
     keybinds: Keybinds,
     player: MpvPlayer,
     should_quit: bool,
@@ -70,6 +78,7 @@ impl App {
 
         let mut state = AppState::new();
         state.settings = SettingsState::load();
+        state.library = library::load_downloaded_tracks(&paths::downloads_dir());
         let keybinds = match Keybinds::load() {
             Ok(keybinds) => keybinds,
             Err(error) => {
@@ -101,6 +110,7 @@ impl App {
                 .with_quality(audio_quality),
             image: ImageService::new(),
             lyrics: LyricsService::new(),
+            downloads: DownloadService::new(),
             keybinds,
             player,
             should_quit: false,
@@ -409,19 +419,23 @@ impl App {
                 Err(error) => self.state.status.message = format!("Mute failed: {error}"),
             },
             Action::DownloadSelected => {
-                let Some(track) = self.state.search.selected_track().cloned() else {
-                    self.state.status.message = String::from("Select a track to download.");
+                let Some(item) = self.state.search.selected_item() else {
+                    self.state.status.message =
+                        String::from("Select a track, album, or artist to download.");
                     return;
                 };
 
-                let plan =
-                    DownloadRequest::single_track(track.clone(), paths::downloads_dir()).plan();
-                self.state.status.message = format!(
-                    "Download not started yet: {} - {} -> {}",
-                    track.artist,
-                    track.title,
-                    plan.target_file.display()
-                );
+                match item {
+                    SelectedSearchItem::Track(track) => {
+                        self.start_track_download(track.clone());
+                    }
+                    SelectedSearchItem::Album(album) => {
+                        self.start_album_download(album.id, album.title.clone());
+                    }
+                    SelectedSearchItem::Artist(artist) => {
+                        self.start_artist_download(artist.id, artist.name.clone());
+                    }
+                }
             }
             Action::ShowDownloaded => {
                 self.show_downloaded_tracks();
@@ -492,7 +506,126 @@ impl App {
         true
     }
 
+    fn start_track_download(&mut self, track: crate::models::track::Track) {
+        let label = format!("track {} - {}", track.artist, track.title);
+        self.state.status.message = format!("Downloading {label}...");
+        self.spawn_download_job(DownloadJob::tracks(label, vec![track]));
+    }
+
+    fn start_album_download(&mut self, album_id: u64, album_title: String) {
+        self.state.status.message = format!("Preparing album download: {album_title}...");
+        let provider = self.provider.clone();
+        let download = self.downloads.clone();
+        let image = self.image.clone();
+        let lyrics = self.lyrics.clone();
+        let tx = self.runtime_tx.clone();
+
+        tokio::spawn(async move {
+            let summary = match provider.fetch_album_details(album_id).await {
+                Ok(details) => {
+                    let label = format!("album {}", details.album.title);
+                    let collection = format!("{} - {}", details.album.artist, details.album.title);
+                    download
+                        .download_job(
+                            provider,
+                            image,
+                            lyrics,
+                            DownloadJob::collection(label, collection, details.tracks),
+                        )
+                        .await
+                }
+                Err(error) => DownloadSummary {
+                    label: format!("album {album_title}"),
+                    files: Vec::new(),
+                    failed: Vec::new(),
+                    fatal_error: Some(error),
+                },
+            };
+            let _ = tx.send(RuntimeEvent::DownloadCompleted(summary));
+        });
+    }
+
+    fn start_artist_download(&mut self, artist_id: u64, artist_name: String) {
+        self.state.status.message = format!("Preparing artist download: {artist_name}...");
+        let provider = self.provider.clone();
+        let download = self.downloads.clone();
+        let image = self.image.clone();
+        let lyrics = self.lyrics.clone();
+        let tx = self.runtime_tx.clone();
+
+        tokio::spawn(async move {
+            let summary = match provider.fetch_artist_details(artist_id).await {
+                Ok(details) => {
+                    let mut tracks = Vec::new();
+                    for album in &details.albums {
+                        match provider.fetch_album_details(album.id).await {
+                            Ok(album_details) => tracks.extend(album_details.tracks),
+                            Err(error) => {
+                                app_log(&format!(
+                                    "artist discography album fetch failed album_id={} error={error}",
+                                    album.id
+                                ));
+                            }
+                        }
+                    }
+                    if tracks.is_empty() {
+                        tracks = details.tracks;
+                    }
+                    dedup_tracks_by_id(&mut tracks);
+
+                    let label = format!("artist {}", details.artist.name);
+                    let collection = format!("{} Discography", details.artist.name);
+                    download
+                        .download_job(
+                            provider,
+                            image,
+                            lyrics,
+                            DownloadJob::collection(label, collection, tracks),
+                        )
+                        .await
+                }
+                Err(error) => DownloadSummary {
+                    label: format!("artist {artist_name}"),
+                    files: Vec::new(),
+                    failed: Vec::new(),
+                    fatal_error: Some(error),
+                },
+            };
+            let _ = tx.send(RuntimeEvent::DownloadCompleted(summary));
+        });
+    }
+
+    fn spawn_download_job(&mut self, job: DownloadJob) {
+        let provider = self.provider.clone();
+        let download = self.downloads.clone();
+        let image = self.image.clone();
+        let lyrics = self.lyrics.clone();
+        let tx = self.runtime_tx.clone();
+
+        tokio::spawn(async move {
+            let summary = download.download_job(provider, image, lyrics, job).await;
+            let _ = tx.send(RuntimeEvent::DownloadCompleted(summary));
+        });
+    }
+
     fn request_playback(&mut self, track: crate::models::track::Track) {
+        if let Some(path) = self.state.library.download_path(track.id).cloned() {
+            let source = PlaybackSource::new(path.to_string_lossy(), PlaybackSourceKind::DirectUrl);
+            match self.player.play(&source) {
+                Ok(()) => {
+                    playback::apply_playback_started(&mut self.state, track.clone(), &source);
+                    self.active_preview_reason = None;
+                    self.request_playback_cover_for_track(track.clone());
+                    self.request_lyrics_for_track(&track, None);
+                }
+                Err(error) => {
+                    playback::apply_playback_start_failed(&mut self.state, error.to_string());
+                    app_log(&format!("local playback failed: {error}"));
+                }
+            }
+            return;
+        }
+
         if let Some(request_id) = self.playback.pending_request_id() {
             app_log(&format!(
                 "concurrent playback request requested while request_id={request_id} is still resolving"
@@ -640,11 +773,8 @@ impl App {
             match applied {
                 playback::PlaybackExitApply::Ended { log_message, .. } => {
                     app_log(&log_message);
-                    if was_success
-                        && self.now_playing_matches_queue_current()
-                        && self.play_next_queued_track()
-                    {
-                        return;
+                    if was_success && self.now_playing_matches_queue_current() {
+                        self.play_next_queued_track();
                     }
                 }
                 playback::PlaybackExitApply::PreviewEnded { log_message, .. }
@@ -723,6 +853,17 @@ impl App {
         let lookup = crate::media::lyrics::LyricsLookup::from_track(track, duration_seconds);
         lyrics::spawn_lyrics_load(self.lyrics.clone(), lookup, self.runtime_tx.clone());
     }
+}
+
+impl Default for App {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+fn dedup_tracks_by_id(tracks: &mut Vec<crate::models::track::Track>) {
+    let mut seen = std::collections::HashSet::new();
+    tracks.retain(|track| seen.insert(track.id));
 }
 
 #[cfg(test)]

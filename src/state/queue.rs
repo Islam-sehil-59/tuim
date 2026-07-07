@@ -93,6 +93,7 @@ impl Queue {
         self.current()
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Option<&Track> {
         let current = self.current_index?;
         let next = current.checked_add(1)?;

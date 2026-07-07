@@ -38,6 +38,12 @@ impl QueuePane {
     }
 }
 
+impl Default for QueuePane {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 fn render_queue(frame: &mut Frame, area: ratatui::layout::Rect, state: &AppState) {
     let palette = state.theme.palette;
     let mut items = vec![ListItem::new(Line::from(vec![
@@ -78,6 +84,7 @@ fn render_queue(frame: &mut Frame, area: ratatui::layout::Rect, state: &AppState
     }
 
     let list = List::new(items)
+        .style(Style::default().fg(palette.foreground))
         .block(
             Block::default()
                 .borders(Borders::ALL)

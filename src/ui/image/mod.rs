@@ -93,10 +93,8 @@ impl KittyImageRenderer {
             Some(path) if inner.width > 0 && inner.height > 0 => {
                 let display_path = display_path_for_mode(path, &state.settings)
                     .unwrap_or_else(|| path.to_string());
-                let display_rect =
-                    Self::aspect_fit_rect(inner, &display_path).unwrap_or_else(|_| {
-                        Self::aspect_fit_rect_for_ratio(inner, 1.0)
-                    });
+                let display_rect = Self::aspect_fit_rect(inner, &display_path)
+                    .unwrap_or_else(|_| Self::aspect_fit_rect_for_ratio(inner, 1.0));
 
                 if self.last_path.as_deref() == Some(display_path.as_str())
                     && self.last_rect == Some(display_rect)
@@ -198,6 +196,12 @@ impl KittyImageRenderer {
             width: target_width,
             height: target_height,
         }
+    }
+}
+
+impl Default for KittyImageRenderer {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -314,7 +318,7 @@ fn render_rounded(source: &str, output: &Path) -> io::Result<()> {
         .resize_to_fill(size, size, FilterType::Lanczos3)
         .to_rgba8();
     let mut output_image = RgbaImage::new(size, size);
-    let corner_radius = (size as f32 * CORNER_RADIUS_RATIO) as f32;
+    let corner_radius = size as f32 * CORNER_RADIUS_RATIO;
 
     for y in 0..size {
         for x in 0..size {

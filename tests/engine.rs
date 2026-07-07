@@ -1,5 +1,7 @@
 use tuim::{
     engine::{
+        covers,
+        events::CoverEvent,
         lyrics::{self, LyricsApply},
         playback::{self, PlaybackEngine},
         search,
@@ -11,6 +13,7 @@ use tuim::{
     models::{album::Album, artist::Artist, track::Track},
     player::mpv::PlaybackExit,
     providers::provider::{AlbumDetails, ArtistDetails, SearchResults},
+    services::image::CoverArt,
     state::{
         AppState,
         lyrics::LyricsState,
@@ -250,6 +253,68 @@ fn lyrics_engine_applies_empty_and_failed_results() {
 
     assert_eq!(failed, LyricsApply::Failed(String::from("timeout")));
     assert_eq!(state.error.as_deref(), Some("timeout"));
+}
+
+#[test]
+fn cover_engine_ignores_stale_failed_cover_fetches() {
+    let mut state = AppState::new();
+
+    assert!(covers::prepare_cover_request(&mut state, "track:1"));
+    assert!(covers::prepare_cover_request(&mut state, "track:2"));
+
+    let result = covers::apply_cover_result(
+        &mut state,
+        CoverEvent {
+            request_key: String::from("track:1"),
+            result: Err(String::from("network failed")),
+        },
+    );
+
+    assert_eq!(result, Ok(()));
+    assert_eq!(state.cover.request_key.as_deref(), Some("track:2"));
+    assert!(state.cover.loading);
+    assert_eq!(state.cover.path, None);
+}
+
+#[test]
+fn cover_engine_applies_matching_failed_cover_fetches() {
+    let mut state = AppState::new();
+
+    assert!(covers::prepare_cover_request(&mut state, "track:1"));
+
+    let result = covers::apply_cover_result(
+        &mut state,
+        CoverEvent {
+            request_key: String::from("track:1"),
+            result: Err(String::from("network failed")),
+        },
+    );
+
+    assert_eq!(result.err(), Some(String::from("network failed")));
+    assert!(!state.cover.loading);
+    assert_eq!(state.cover.path, None);
+}
+
+#[test]
+fn cover_engine_applies_matching_successful_cover_fetches() {
+    let mut state = AppState::new();
+
+    assert!(covers::prepare_cover_request(&mut state, "track:1"));
+
+    let result = covers::apply_cover_result(
+        &mut state,
+        CoverEvent {
+            request_key: String::from("track:1"),
+            result: Ok(CoverArt {
+                request_key: String::from("track:1"),
+                path: Some(String::from("/tmp/cover.png")),
+            }),
+        },
+    );
+
+    assert_eq!(result, Ok(()));
+    assert!(!state.cover.loading);
+    assert_eq!(state.cover.path.as_deref(), Some("/tmp/cover.png"));
 }
 
 fn track(id: u64) -> Track {

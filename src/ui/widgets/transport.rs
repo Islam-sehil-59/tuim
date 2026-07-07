@@ -45,21 +45,20 @@ fn render_classic(frame: &mut Frame, area: Rect, state: &AppState, title: &str) 
         .label(label);
     let pause_icon = if state.player.paused { "" } else { "" };
     let controls = Paragraph::new(Line::from(vec![
-        Span::raw(" prev   "),
-        Span::raw(" -10   "),
+        Span::styled(" prev", Style::default().fg(palette.foreground)),
+        Span::styled("    -10", Style::default().fg(palette.foreground)),
         Span::styled(
-            format!("{pause_icon} play/pause"),
+            format!("   {pause_icon} play/pause"),
             Style::default()
                 .fg(palette.accent_secondary)
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::raw("    stop   "),
-        Span::raw("+10    "),
-        Span::raw("next    "),
-        Span::styled("", Style::default().fg(palette.muted_text)),
-        Span::raw("   "),
-        Span::styled("", Style::default().fg(palette.muted_text)),
-        Span::raw("    now playing"),
+        Span::styled("    stop", Style::default().fg(palette.foreground)),
+        Span::styled("   +10 ", Style::default().fg(palette.foreground)),
+        Span::styled("   next ", Style::default().fg(palette.foreground)),
+        Span::styled("   ", Style::default().fg(palette.muted_text)),
+        Span::styled("   ", Style::default().fg(palette.muted_text)),
+        Span::styled("    now playing", Style::default().fg(palette.foreground)),
     ]))
     .alignment(Alignment::Center);
 
@@ -110,25 +109,24 @@ fn render_controls(frame: &mut Frame, area: Rect, state: &AppState, palette: The
     let pause_icon = if state.player.paused { "" } else { "" };
     let controls = Paragraph::new(Line::from(vec![
         Span::styled(
-            "  ",
+            "    ",
             Style::default()
                 .fg(palette.foreground)
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::raw("  "),
         Span::styled("", Style::default().fg(palette.foreground)),
-        Span::raw("  "),
+        Span::styled("  ", Style::default().fg(palette.foreground)),
         Span::styled(
             pause_icon,
             Style::default()
                 .fg(palette.accent_secondary)
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::raw("  "),
+        Span::styled("  ", Style::default().fg(palette.foreground)),
         Span::styled("", Style::default().fg(palette.foreground)),
-        Span::raw("  "),
+        Span::styled("  ", Style::default().fg(palette.foreground)),
         Span::styled("", Style::default().fg(palette.foreground)),
-        Span::raw("  "),
+        Span::styled("  ", Style::default().fg(palette.foreground)),
         Span::styled(
             "",
             Style::default()

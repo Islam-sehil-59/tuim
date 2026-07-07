@@ -459,6 +459,12 @@ impl ApiClient {
     }
 }
 
+impl Default for ApiClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 fn tidal_manifest_query(track_id: u64, quality: AudioQuality) -> Vec<(String, String)> {
     let formats = match quality {
         AudioQuality::HiResLossless => &["FLAC_HIRES"][..],

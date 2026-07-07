@@ -34,9 +34,7 @@ fn write_log(target: &str, message: &str) {
 
 pub(crate) fn log_path(file_name: &str) -> PathBuf {
     if let Ok(cache_home) = env::var("XDG_CACHE_HOME") {
-        return PathBuf::from(cache_home)
-            .join("tuim")
-            .join(file_name);
+        return PathBuf::from(cache_home).join("tuim").join(file_name);
     }
 
     if let Ok(home) = env::var("HOME") {

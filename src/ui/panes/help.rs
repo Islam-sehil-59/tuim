@@ -30,6 +30,7 @@ impl HelpPane {
 
         let title = Paragraph::new("TUIM Help")
             .alignment(Alignment::Center)
+            .style(Style::default().fg(palette.foreground))
             .block(
                 Block::default()
                     .borders(Borders::ALL)
@@ -58,6 +59,7 @@ Use Left and Right on results to switch Tracks, Albums, and Artists.
 When the search box is focused, normal letters type into it.
 When results are focused, letters become commands.",
         )
+        .style(Style::default().fg(palette.foreground))
         .block(
             Block::default()
                 .borders(Borders::ALL)
@@ -76,6 +78,7 @@ Ctrl+U         Clear search text
 B              Back from album/artist detail
 Left / Right   Switch Tracks, Albums, Artists",
         )
+        .style(Style::default().fg(palette.foreground))
         .block(
             Block::default()
                 .borders(Borders::ALL)
@@ -95,6 +98,7 @@ Shift+P        Play all tracks in album/artist detail
 Shift+Q        Queue all tracks in album/artist detail
 V              Switch cover style: cover, rounded or static vinyl",
         )
+        .style(Style::default().fg(palette.foreground))
         .block(
             Block::default()
                 .borders(Borders::ALL)
@@ -119,6 +123,7 @@ Lyrics         Load automatically when a song starts
 L              Open Now Playing view
 F2             Open queue",
         )
+        .style(Style::default().fg(palette.foreground))
         .block(
             Block::default()
                 .borders(Borders::ALL)
@@ -137,6 +142,7 @@ D              Remove selected queued track
 F1             Return to search
 Esc            Quit app",
         )
+        .style(Style::default().fg(palette.foreground))
         .block(
             Block::default()
                 .borders(Borders::ALL)
@@ -155,6 +161,7 @@ Status: {}
 ",
             state.status.message
         ))
+        .style(Style::default().fg(palette.foreground))
         .block(
             Block::default()
                 .borders(Borders::ALL)
@@ -171,5 +178,11 @@ Status: {}
         frame.render_widget(playback, right[0]);
         frame.render_widget(queue, right[1]);
         frame.render_widget(footer, chunks[3]);
+    }
+}
+
+impl Default for HelpPane {
+    fn default() -> Self {
+        Self::new()
     }
 }
