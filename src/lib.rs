@@ -6,3 +6,4 @@ pub mod models;
 pub mod player;
 pub mod state;
 pub mod theme;
+pub mod visualizer;
