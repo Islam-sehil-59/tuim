@@ -4,6 +4,7 @@ pub mod log;
 pub mod media;
 pub mod models;
 pub mod player;
+pub mod services;
 pub mod state;
 pub mod theme;
 pub mod visualizer;
